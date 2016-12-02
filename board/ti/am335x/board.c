@@ -70,11 +70,13 @@ static struct ctrl_dev *cdev = (struct ctrl_dev *)CTRL_DEVICE_BASE;
 #ifdef CONFIG_TI_I2C_BOARD_DETECT
 void do_board_detect(void)
 {
+#ifndef CONFIG_SBC8600B	
 	enable_i2c0_pin_mux();
 	i2c_init(CONFIG_SYS_OMAP24_I2C_SPEED, CONFIG_SYS_OMAP24_I2C_SLAVE);
 
 	if (ti_i2c_eeprom_am_get(-1, CONFIG_SYS_I2C_EEPROM_ADDR))
 		printf("ti_i2c_eeprom_init failed\n");
+#endif
 }
 #endif
 
@@ -229,6 +231,32 @@ static struct emif_regs ddr3_icev2_emif_reg_data = {
 				PHY_EN_DYN_PWRDN,
 };
 
+#ifdef CONFIG_SBC8600B
+static const struct ddr_data ddr3_sbc8600b_data = {
+	.datardsratio0 = H5TQ2G83CFR_H9C_RD_DQS,
+	.datawdsratio0 = H5TQ2G83CFR_H9C_WR_DQS,
+	.datafwsratio0 = H5TQ2G83CFR_H9C_PHY_FIFO_WE,
+	.datawrsratio0 = H5TQ2G83CFR_H9C_PHY_WR_DATA,
+};
+static const struct cmd_control ddr3_sbc8600b_cmd_ctrl_data = {
+	.cmd0csratio = H5TQ2G83CFR_H9C_RATIO,
+	.cmd0iclkout = H5TQ2G83CFR_H9C_INVERT_CLKOUT,
+	.cmd1csratio = H5TQ2G83CFR_H9C_RATIO,
+	.cmd1iclkout = H5TQ2G83CFR_H9C_INVERT_CLKOUT,
+	.cmd2csratio = H5TQ2G83CFR_H9C_RATIO,
+	.cmd2iclkout = H5TQ2G83CFR_H9C_INVERT_CLKOUT,
+};
+static struct emif_regs ddr3_sbc8600b_emif_reg_data = {
+	.sdram_config 	= H5TQ2G83CFR_H9C_EMIF_SDCFG,
+	.ref_ctrl 		= H5TQ2G83CFR_H9C_EMIF_SDREF,
+	.sdram_tim1 	= H5TQ2G83CFR_H9C_EMIF_TIM1,
+	.sdram_tim2 	= H5TQ2G83CFR_H9C_EMIF_TIM2,
+	.sdram_tim3 	= H5TQ2G83CFR_H9C_EMIF_TIM3,
+	.zq_config 		= H5TQ2G83CFR_H9C_ZQ_CFG,
+	.emif_ddr_phy_ctlr_1 = H5TQ2G83CFR_H9C_EMIF_READ_LATENCY |
+				PHY_EN_DYN_PWRDN,
+};
+#endif
 #ifdef CONFIG_SPL_OS_BOOT
 int spl_start_uboot(void)
 {
@@ -253,6 +281,8 @@ const struct dpll_params dpll_ddr = {
 const struct dpll_params dpll_ddr_evm_sk = {
 		303, OSC-1, 1, -1, -1, -1, -1};
 const struct dpll_params dpll_ddr_bone_black = {
+		400, OSC-1, 1, -1, -1, -1, -1};
+const struct dpll_params dpll_ddr_sbc8600b = {
 		400, OSC-1, 1, -1, -1, -1, -1};
 
 void am33xx_spl_board_init(void)
@@ -355,6 +385,9 @@ void am33xx_spl_board_init(void)
 				       TPS65217_LDO_VOLTAGE_OUT_3_3,
 				       TPS65217_LDO_MASK))
 			puts("tps65217_reg_write failure\n");
+	} else if(board_is_embest_sbc8600b()) {
+		/* Set CORE Frequencies to OPP100 */
+		do_setup_dpll(&dpll_core_regs, &dpll_core_opp100);
 	} else {
 		int sil_rev;
 
@@ -402,6 +435,8 @@ const struct dpll_params *get_dpll_ddr_params(void)
 		return &dpll_ddr_bone_black;
 	else if (board_is_evm_15_or_later())
 		return &dpll_ddr_evm_sk;
+	else if (board_is_embest_sbc8600b())
+		return &dpll_ddr_sbc8600b;
 	else
 		return &dpll_ddr;
 }
@@ -460,6 +495,13 @@ const struct ctrl_ioregs ioregs = {
 	.dt1ioctl		= MT47H128M16RT25E_IOCTRL_VALUE,
 };
 
+const struct ctrl_ioregs ioregs_sbc8600b = {
+	.cm0ioctl		= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+	.cm1ioctl		= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+	.cm2ioctl		= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+	.dt0ioctl		= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+	.dt1ioctl		= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+};
 void sdram_init(void)
 {
 	if (board_is_evm_sk()) {
@@ -490,6 +532,10 @@ void sdram_init(void)
 	else if (board_is_icev2())
 		config_ddr(400, &ioregs_evmsk, &ddr3_icev2_data,
 			   &ddr3_icev2_cmd_ctrl_data, &ddr3_icev2_emif_reg_data,
+			   0);
+	else if (board_is_embest_sbc8600b())
+		config_ddr(400, &ioregs_sbc8600b, &ddr3_sbc8600b_data,
+			   &ddr3_sbc8600b_cmd_ctrl_data, &ddr3_sbc8600b_emif_reg_data,
 			   0);
 	else
 		config_ddr(266, &ioregs, &ddr2_data,
@@ -803,6 +849,13 @@ int board_eth_init(bd_t *bis)
 		cpsw_slaves[1].phy_if = PHY_INTERFACE_MODE_RMII;
 		cpsw_slaves[0].phy_addr = 1;
 		cpsw_slaves[1].phy_addr = 3;
+	} else if (board_is_embest_sbc8600b()) {
+		cpsw_slaves[0].phy_addr = 4;
+		cpsw_slaves[1].phy_addr = 6;
+		cspw_data.slaves = 2;
+		writel((RGMII_MODE_ENABLE | RGMII_INT_DELAY), &cdev->miisel);
+		cpsw_slaves[0].phy_if = cpsw_slaves[1].phy_if =
+		 	                   PHY_INTERFACE_MODE_RGMII;
 	} else {
 		writel((RGMII_MODE_ENABLE | RGMII_INT_DELAY), &cdev->miisel);
 		cpsw_slaves[0].phy_if = cpsw_slaves[1].phy_if =
@@ -828,14 +881,21 @@ int board_eth_init(bd_t *bis)
 #define AR8051_DEBUG_RGMII_CLK_DLY_REG	0x5
 #define AR8051_RGMII_TX_CLK_DLY		0x100
 
-	if (board_is_evm_sk() || board_is_gp_evm()) {
+	if (board_is_evm_sk() || board_is_gp_evm() || board_is_embest_sbc8600b()) {
 		const char *devname;
 		devname = miiphy_get_current_dev();
 
-		miiphy_write(devname, 0x0, AR8051_PHY_DEBUG_ADDR_REG,
+		if(board_is_embest_sbc8600b()) {
+			miiphy_write(devname, 0x6, AR8051_PHY_DEBUG_ADDR_REG,
 				AR8051_DEBUG_RGMII_CLK_DLY_REG);
-		miiphy_write(devname, 0x0, AR8051_PHY_DEBUG_DATA_REG,
+			miiphy_write(devname, 0x6, AR8051_PHY_DEBUG_DATA_REG,
 				AR8051_RGMII_TX_CLK_DLY);
+		} else {
+			miiphy_write(devname, 0x0, AR8051_PHY_DEBUG_ADDR_REG,
+				AR8051_DEBUG_RGMII_CLK_DLY_REG);
+			miiphy_write(devname, 0x0, AR8051_PHY_DEBUG_DATA_REG,
+				AR8051_RGMII_TX_CLK_DLY);
+		}
 	}
 #endif
 #if defined(CONFIG_USB_ETHER) && \
