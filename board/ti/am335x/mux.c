@@ -35,8 +35,13 @@ static struct module_pin_mux uart1_pin_mux[] = {
 };
 
 static struct module_pin_mux uart2_pin_mux[] = {
+#ifdef CONFIG_SBC8600B
+	{OFFSET(mii1_crs), (MODE(6) | PULLUP_EN | RXACTIVE)},	/* UART2_RXD */
+	{OFFSET(mii1_rxerr), (MODE(6) | PULLUDEN)},		/* UART2_TXD */
+#else
 	{OFFSET(spi0_sclk), (MODE(1) | PULLUP_EN | RXACTIVE)},	/* UART2_RXD */
 	{OFFSET(spi0_d0), (MODE(1) | PULLUDEN)},		/* UART2_TXD */
+#endif
 	{-1},
 };
 
@@ -366,9 +371,6 @@ static struct module_pin_mux sbc8600b_pin_mux[] = {
 	/*i2c1*/		
 	{OFFSET(spi0_d1), (MODE(2) | RXACTIVE | PULLUDEN | SLEWCTRL)},		/* I2C_DATA */
 	{OFFSET(spi0_cs0), (MODE(2) | RXACTIVE | PULLUDEN | SLEWCTRL)}, 	/* I2C_SCLK */
-	/*uart0*/		
-	{OFFSET(uart0_rxd), (MODE(0) | PULLUP_EN | RXACTIVE)},				/* UART0_RXD */
-	{OFFSET(uart0_txd), (MODE(0) | PULLUDEN)},							/* UART0_TXD */		
 	{-1},
 };
 #if defined(CONFIG_NOR_BOOT)

@@ -930,6 +930,8 @@ int board_fit_config_name_match(const char *name)
 		return 0;
 	else if (board_is_icev2() && !strcmp(name, "am335x-icev2"))
 		return 0;
+	else if (board_is_embest_sbc8600b() && !strcmp(name, "am335x-evm"))
+		return 0;
 	else
 		return -1;
 }
