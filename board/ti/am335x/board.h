@@ -20,6 +20,7 @@
 #define board_is_gp_evm() 1
 #define board_is_evm_15_or_later() 1
 #define board_is_icev2() 0
+#define board_is_embest_sbc8600b() 0
 #elif CONFIG_SBC8600B
 #define board_is_bone() 0
 #define board_is_bone_lt() 0
@@ -31,6 +32,7 @@
 #define board_is_icev2() 0
 #define board_is_embest_sbc8600b() 1
 #else
+#define board_is_embest_sbc8600b() 0
 static inline int board_is_bone(void)
 {
 	return board_ti_is("A335BONE");

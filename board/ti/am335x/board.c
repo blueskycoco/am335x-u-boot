@@ -70,13 +70,13 @@ static struct ctrl_dev *cdev = (struct ctrl_dev *)CTRL_DEVICE_BASE;
 #ifdef CONFIG_TI_I2C_BOARD_DETECT
 void do_board_detect(void)
 {
-#ifndef CONFIG_SBC8600B	
+	if (!board_is_embest_sbc8600b()) {
 	enable_i2c0_pin_mux();
 	i2c_init(CONFIG_SYS_OMAP24_I2C_SPEED, CONFIG_SYS_OMAP24_I2C_SLAVE);
 
 	if (ti_i2c_eeprom_am_get(-1, CONFIG_SYS_I2C_EEPROM_ADDR))
 		printf("ti_i2c_eeprom_init failed\n");
-#endif
+	}
 }
 #endif
 
@@ -231,7 +231,6 @@ static struct emif_regs ddr3_icev2_emif_reg_data = {
 				PHY_EN_DYN_PWRDN,
 };
 
-#ifdef CONFIG_SBC8600B
 static const struct ddr_data ddr3_sbc8600b_data = {
 	.datardsratio0 = H5TQ2G83CFR_H9C_RD_DQS,
 	.datawdsratio0 = H5TQ2G83CFR_H9C_WR_DQS,
@@ -256,7 +255,6 @@ static struct emif_regs ddr3_sbc8600b_emif_reg_data = {
 	.emif_ddr_phy_ctlr_1 = H5TQ2G83CFR_H9C_EMIF_READ_LATENCY |
 				PHY_EN_DYN_PWRDN,
 };
-#endif
 #ifdef CONFIG_SPL_OS_BOOT
 int spl_start_uboot(void)
 {
