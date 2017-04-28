@@ -70,11 +70,13 @@ static struct ctrl_dev *cdev = (struct ctrl_dev *)CTRL_DEVICE_BASE;
 #ifdef CONFIG_TI_I2C_BOARD_DETECT
 void do_board_detect(void)
 {
+#ifndef CONFIG_SBC8600B
 	enable_i2c0_pin_mux();
 	i2c_init(CONFIG_SYS_OMAP24_I2C_SPEED, CONFIG_SYS_OMAP24_I2C_SLAVE);
 
 	if (ti_i2c_eeprom_am_get(-1, CONFIG_SYS_I2C_EEPROM_ADDR))
 		printf("ti_i2c_eeprom_init failed\n");
+#endif
 }
 #endif
 
@@ -264,6 +266,10 @@ const struct dpll_params dpll_ddr_evm_sk = {
 		303, OSC-1, 1, -1, -1, -1, -1};
 const struct dpll_params dpll_ddr_bone_black = {
 		400, OSC-1, 1, -1, -1, -1, -1};
+#ifdef CONFIG_SBC8600B
+const struct dpll_params dpll_ddr_sbc8600b = {
+		400, OSC-1, 1, -1, -1, -1, -1};
+#endif
 
 void am33xx_spl_board_init(void)
 {
@@ -271,7 +277,10 @@ void am33xx_spl_board_init(void)
 
 	/* Get the frequency */
 	dpll_mpu_opp100.m = am335x_get_efuse_mpu_max_freq(cdev);
-
+#ifdef CONFIG_SBC8600B
+		/* Set CORE Frequencies to OPP100 */
+		do_setup_dpll(&dpll_core_regs, &dpll_core_opp100);
+#else
 	if (board_is_bone() || board_is_bone_lt()) {
 		/* BeagleBone PMIC Code */
 		int usb_cur_lim;
@@ -399,13 +408,16 @@ void am33xx_spl_board_init(void)
 		/* Set CORE Frequencies to OPP100 */
 		do_setup_dpll(&dpll_core_regs, &dpll_core_opp100);
 	}
-
+#endif
 	/* Set MPU Frequency to what we detected now that voltages are set */
 	do_setup_dpll(&dpll_mpu_regs, &dpll_mpu_opp100);
 }
 
 const struct dpll_params *get_dpll_ddr_params(void)
 {
+#ifdef CONFIG_SBC8600B
+	return &dpll_ddr_sbc8600b;
+#else
 	if (board_is_evm_sk())
 		return &dpll_ddr_evm_sk;
 	else if (board_is_bone_lt() || board_is_icev2())
@@ -414,6 +426,7 @@ const struct dpll_params *get_dpll_ddr_params(void)
 		return &dpll_ddr_evm_sk;
 	else
 		return &dpll_ddr;
+#endif
 }
 
 void set_uart_mux_conf(void)
@@ -469,9 +482,46 @@ const struct ctrl_ioregs ioregs = {
 	.dt0ioctl		= MT47H128M16RT25E_IOCTRL_VALUE,
 	.dt1ioctl		= MT47H128M16RT25E_IOCTRL_VALUE,
 };
-
+#ifdef CONFIG_SBC8600B
+const struct ctrl_ioregs ioregs_sbc8600b = {
+	.cm0ioctl	= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+	.cm1ioctl	= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+	.cm2ioctl	= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+	.dt0ioctl	= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+	.dt1ioctl	= H5TQ2G83CFR_H9C_IOCTRL_VALUE,
+};
+static const struct ddr_data ddr3_sbc8600b_data = {
+	.datardsratio0 = H5TQ2G83CFR_H9C_RD_DQS,
+	.datawdsratio0 = H5TQ2G83CFR_H9C_WR_DQS,
+	.datafwsratio0 = H5TQ2G83CFR_H9C_PHY_FIFO_WE,
+	.datawrsratio0 = H5TQ2G83CFR_H9C_PHY_WR_DATA,
+};
+static const struct cmd_control ddr3_sbc8600b_cmd_ctrl_data = {
+	.cmd0csratio = H5TQ2G83CFR_H9C_RATIO,
+	.cmd0iclkout = H5TQ2G83CFR_H9C_INVERT_CLKOUT,
+	.cmd1csratio = H5TQ2G83CFR_H9C_RATIO,
+	.cmd1iclkout = H5TQ2G83CFR_H9C_INVERT_CLKOUT,
+	.cmd2csratio = H5TQ2G83CFR_H9C_RATIO,
+	.cmd2iclkout = H5TQ2G83CFR_H9C_INVERT_CLKOUT,
+};
+static struct emif_regs ddr3_sbc8600b_emif_reg_data = {
+	.sdram_config = H5TQ2G83CFR_H9C_EMIF_SDCFG,
+	.ref_ctrl = H5TQ2G83CFR_H9C_EMIF_SDREF,
+	.sdram_tim1 = H5TQ2G83CFR_H9C_EMIF_TIM1,
+	.sdram_tim2 = H5TQ2G83CFR_H9C_EMIF_TIM2,
+	.sdram_tim3 = H5TQ2G83CFR_H9C_EMIF_TIM3,
+	.zq_config = H5TQ2G83CFR_H9C_ZQ_CFG,
+	.emif_ddr_phy_ctlr_1 = H5TQ2G83CFR_H9C_EMIF_READ_LATENCY |
+		PHY_EN_DYN_PWRDN,
+};
+#endif
 void sdram_init(void)
 {
+#ifdef CONFIG_SBC8600B
+		config_ddr(400, &ioregs_sbc8600b, &ddr3_sbc8600b_data,
+			   &ddr3_sbc8600b_cmd_ctrl_data, &ddr3_sbc8600b_emif_reg_data,
+			   0);
+#else
 	if (board_is_evm_sk()) {
 		/*
 		 * EVM SK 1.2A and later use gpio0_7 to enable DDR3.
@@ -507,6 +557,7 @@ void sdram_init(void)
 	else
 		config_ddr(266, &ioregs, &ddr2_data,
 			   &ddr2_cmd_ctrl_data, &ddr2_emif_reg_data, 0);
+#endif
 }
 #endif
 

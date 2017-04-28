@@ -38,6 +38,9 @@ config NOR
 	  In practice this is seen as a NOR flash module connected to the
 	  "memory cape" for the BeagleBone family.
 
+config SBC8600B
+	bool "Support for embest sbc8600b board"
+
 source "board/ti/common/Kconfig"
 
 endif
