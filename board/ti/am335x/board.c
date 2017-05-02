@@ -919,7 +919,6 @@ int board_eth_init(bd_t *bis)
 #define AR8051_RGMII_TX_CLK_DLY		0x100
 #ifndef CONFIG_SBC8600B
 	if (board_is_evm_sk() || board_is_gp_evm()) {
-#endif
 		const char *devname;
 		devname = miiphy_get_current_dev();
 
@@ -927,8 +926,15 @@ int board_eth_init(bd_t *bis)
 				AR8051_DEBUG_RGMII_CLK_DLY_REG);
 		miiphy_write(devname, 0x0, AR8051_PHY_DEBUG_DATA_REG,
 				AR8051_RGMII_TX_CLK_DLY);
-#ifndef CONFIG_SBC8600B
 	}
+#else
+	const char *devname;
+	devname = miiphy_get_current_dev();
+
+	miiphy_write(devname, 0x6, AR8051_PHY_DEBUG_ADDR_REG,
+			AR8051_DEBUG_RGMII_CLK_DLY_REG);
+	miiphy_write(devname, 0x6, AR8051_PHY_DEBUG_DATA_REG,
+			AR8051_RGMII_TX_CLK_DLY);
 #endif
 #endif
 #if defined(CONFIG_USB_ETHER) && \
