@@ -83,10 +83,14 @@ void do_board_detect(void)
 #ifndef CONFIG_DM_SERIAL
 struct serial_device *default_serial_console(void)
 {
+#ifndef CONFIG_SBC8600B
 	if (board_is_icev2())
 		return &eserial4_device;
 	else
 		return &eserial1_device;
+#else
+	return &eserial1_device;
+#endif
 }
 #endif
 
@@ -279,6 +283,12 @@ void am33xx_spl_board_init(void)
 	dpll_mpu_opp100.m = am335x_get_efuse_mpu_max_freq(cdev);
 #ifdef CONFIG_SBC8600B
 		/* Set CORE Frequencies to OPP100 */
+		if (dpll_mpu_opp100.m == AM335X_ZCZ_1000)
+			puts("Freq: AM335X_ZCZ_1000");
+		else if(dpll_mpu_opp100.m == AM335X_ZCZ_800)
+			puts("Freq: AM335X_ZCZ_800");
+		else if(dpll_mpu_opp100.m == AM335X_ZCZ_720)
+			puts("Freq: AM335X_ZCZ_720");
 		do_setup_dpll(&dpll_core_regs, &dpll_core_opp100);
 #else
 	if (board_is_bone() || board_is_bone_lt()) {
@@ -506,11 +516,11 @@ static const struct cmd_control ddr3_sbc8600b_cmd_ctrl_data = {
 };
 static struct emif_regs ddr3_sbc8600b_emif_reg_data = {
 	.sdram_config = H5TQ2G83CFR_H9C_EMIF_SDCFG,
-	.ref_ctrl = H5TQ2G83CFR_H9C_EMIF_SDREF,
-	.sdram_tim1 = H5TQ2G83CFR_H9C_EMIF_TIM1,
-	.sdram_tim2 = H5TQ2G83CFR_H9C_EMIF_TIM2,
-	.sdram_tim3 = H5TQ2G83CFR_H9C_EMIF_TIM3,
-	.zq_config = H5TQ2G83CFR_H9C_ZQ_CFG,
+	.ref_ctrl = 	H5TQ2G83CFR_H9C_EMIF_SDREF,
+	.sdram_tim1 = 	H5TQ2G83CFR_H9C_EMIF_TIM1,
+	.sdram_tim2 = 	H5TQ2G83CFR_H9C_EMIF_TIM2,
+	.sdram_tim3 = 	H5TQ2G83CFR_H9C_EMIF_TIM3,
+	.zq_config = 	H5TQ2G83CFR_H9C_ZQ_CFG,
 	.emif_ddr_phy_ctlr_1 = H5TQ2G83CFR_H9C_EMIF_READ_LATENCY |
 		PHY_EN_DYN_PWRDN,
 };
@@ -629,6 +639,7 @@ int board_init(void)
 
 #if !defined(CONFIG_SPL_BUILD) || \
 	(defined(CONFIG_SPL_ETH_SUPPORT) && defined(CONFIG_SPL_BUILD))
+#ifndef CONFIG_SBC8600B
 	if (board_is_icev2()) {
 		int rv;
 		u32 reg;
@@ -704,6 +715,7 @@ int board_init(void)
 		gpio_set_value(GPIO_PHY_RESET, 1);
 	}
 #endif
+#endif
 
 	return 0;
 }
@@ -717,12 +729,13 @@ int board_late_init(void)
 #endif
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
+#ifndef CONFIG_SBC8600B
 	char *name = NULL;
 
 	if (board_is_bbg1())
 		name = "BBG1";
 	set_board_info_env(name);
-
+#endif
 	/*
 	 * Default FIT boot on HS devices. Non FIT images are not allowed
 	 * on HS devices.
@@ -861,6 +874,7 @@ int board_eth_init(bd_t *bis)
 	}
 
 #ifdef CONFIG_DRIVER_TI_CPSW
+#ifndef CONFIG_SBC8600B
 	if (board_is_bone() || board_is_bone_lt() ||
 	    board_is_idk()) {
 		writel(MII_MODE_ENABLE, &cdev->miisel);
@@ -877,7 +891,14 @@ int board_eth_init(bd_t *bis)
 		cpsw_slaves[0].phy_if = cpsw_slaves[1].phy_if =
 				PHY_INTERFACE_MODE_RGMII;
 	}
-
+#else
+	cpsw_slaves[0].phy_addr = 4;
+	cpsw_slaves[1].phy_addr = 6;
+	cpsw_data.slaves = 2;
+	writel((RGMII_MODE_ENABLE | RGMII_INT_DELAY), &cdev->miisel);
+	cpsw_slaves[0].phy_if = cpsw_slaves[1].phy_if =
+	 	                   PHY_INTERFACE_MODE_RGMII;
+#endif
 	rv = cpsw_register(&cpsw_data);
 	if (rv < 0)
 		printf("Error %d registering CPSW switch\n", rv);
@@ -896,8 +917,9 @@ int board_eth_init(bd_t *bis)
 #define AR8051_PHY_DEBUG_DATA_REG	0x1e
 #define AR8051_DEBUG_RGMII_CLK_DLY_REG	0x5
 #define AR8051_RGMII_TX_CLK_DLY		0x100
-
+#ifndef CONFIG_SBC8600B
 	if (board_is_evm_sk() || board_is_gp_evm()) {
+#endif
 		const char *devname;
 		devname = miiphy_get_current_dev();
 
@@ -905,7 +927,9 @@ int board_eth_init(bd_t *bis)
 				AR8051_DEBUG_RGMII_CLK_DLY_REG);
 		miiphy_write(devname, 0x0, AR8051_PHY_DEBUG_DATA_REG,
 				AR8051_RGMII_TX_CLK_DLY);
+#ifndef CONFIG_SBC8600B
 	}
+#endif
 #endif
 #if defined(CONFIG_USB_ETHER) && \
 	(!defined(CONFIG_SPL_BUILD) || defined(CONFIG_SPL_USBETH_SUPPORT))
@@ -927,6 +951,11 @@ int board_eth_init(bd_t *bis)
 #ifdef CONFIG_SPL_LOAD_FIT
 int board_fit_config_name_match(const char *name)
 {
+#ifdef CONFIG_SBC8600B
+	if (!strcmp(name, "am335x-evm"))
+		return 0;
+	return 1;
+#else
 	if (board_is_gp_evm() && !strcmp(name, "am335x-evm"))
 		return 0;
 	else if (board_is_bone() && !strcmp(name, "am335x-bone"))
@@ -941,6 +970,7 @@ int board_fit_config_name_match(const char *name)
 		return 0;
 	else
 		return -1;
+#endif
 }
 #endif
 
@@ -961,8 +991,9 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	const char *path;
 	int offs;
 	int ret;
-
+#ifndef CONFIG_SBC8600B
 	if (!board_is_icev2())
+#endif
 		return 0;
 
 	/* Board DT default is both ports are RMII */
