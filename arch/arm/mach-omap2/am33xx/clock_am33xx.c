@@ -116,7 +116,7 @@ const struct dpll_params dpll_ddr3_303MHz[NUM_CRYSTAL_FREQ] = {
 const struct dpll_params dpll_ddr3_400MHz[NUM_CRYSTAL_FREQ] = {
 		{125, 5, 1, -1, -1, -1, -1}, /*19.2*/
 		{50, 2, 1, -1, -1, -1, -1}, /* 24 MHz */
-		{16, 0, 1, -1, 4, -1, -1}, /* 25 MHz */
+		{400, OSC-1, 1, -1, -1, -1, -1}, /* 25 MHz */
 		{200, 12, 1, -1, 4, -1, -1}  /* 26 MHz */
 };
 
